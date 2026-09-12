@@ -1,4 +1,5 @@
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import type * as NodeFs from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -7,6 +8,11 @@ const testState = {
   fakeHomeDir: '',
   previousConfigDir: undefined as string | undefined
 }
+
+vi.mock('node:fs', async (importOriginal) => {
+  const actual = await importOriginal<typeof NodeFs>()
+  return { ...actual, mkdirSync: vi.fn(actual.mkdirSync) }
+})
 
 vi.mock('node:os', async () => {
   // eslint-disable-next-line @typescript-eslint/consistent-type-imports -- vi.importActual requires inline import()
@@ -36,6 +42,23 @@ afterEach(() => {
 })
 
 describe('ClaudeRuntimePathResolver', () => {
+  it.each([false, true])(
+    'does no mkdir work for repeated reads (directory exists: %s)',
+    (exists) => {
+      if (exists) {
+        mkdirSync(join(testState.fakeHomeDir, '.claude'), { recursive: true })
+      }
+      vi.mocked(mkdirSync).mockClear()
+      const resolver = new ClaudeRuntimePathResolver()
+
+      for (let index = 0; index < 1000; index += 1) {
+        resolver.getRuntimePaths()
+      }
+
+      expect(mkdirSync).not.toHaveBeenCalled()
+    }
+  )
+
   it('leaves the default config directory alone while resolving paths', () => {
     const paths = new ClaudeRuntimePathResolver().getRuntimePaths()
 
