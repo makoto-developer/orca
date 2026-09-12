@@ -142,7 +142,13 @@ export function claudeConfigDirKeychainAliases(configDir: string): string[] {
       }
       break
     } catch (error) {
-      if (!(error instanceof Error) || !('code' in error) || error.code !== 'ENOENT') {
+      // Missing paths with parent traversal cannot prove an alias across symlinks.
+      if (
+        !(error instanceof Error) ||
+        !('code' in error) ||
+        error.code !== 'ENOENT' ||
+        configDir.split(/[\\/]/).includes('..')
+      ) {
         break
       }
       try {

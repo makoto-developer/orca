@@ -8,7 +8,7 @@ import {
   writeFileSync
 } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, sep } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { claudeConfigDirKeychainAliases } from './keychain'
 
@@ -50,6 +50,17 @@ describe('Claude config directory Keychain aliases', () => {
       configDir,
       join(canonical, '.claude')
     ])
+  })
+
+  it('keeps a missing path with parent traversal raw instead of guessing through a symlink', () => {
+    const child = join(canonical, 'child')
+    const childLink = join(directory, 'child-link')
+    mkdirSync(child)
+    symlinkSync(child, childLink, process.platform === 'win32' ? 'junction' : 'dir')
+    const configDir = [childLink, '..', '.claude'].join(sep)
+
+    expect(claudeConfigDirKeychainAliases(configDir)).toEqual([configDir])
+    expect(existsSync(join(canonical, '.claude'))).toBe(false)
   })
 
   it('does not duplicate an already canonical missing path', () => {
